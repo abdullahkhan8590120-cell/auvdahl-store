@@ -12,6 +12,7 @@ import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import ComingSoon from './pages/ComingSoon'
 import AdminDashboard from './admin/AdminDashboard'
+import AdminRoute from './admin/AdminRoute'
 
 export default function App() {
   return (
@@ -27,7 +28,7 @@ export default function App() {
         <Route path="forgot-password" element={<Auth mode="forgot" />} />
         <Route path="reset-password" element={<Auth mode="reset" />} />
         <Route path="account" element={<Account />} />
-        <Route path="admin" element={<AdminDashboard />} />
+        <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="orders" element={<Orders />} />
         <Route path="order/:id" element={<OrderDetail />} />
         {/* Phase 5+: real Shop, Product, Cart, Checkout pages replace this */}

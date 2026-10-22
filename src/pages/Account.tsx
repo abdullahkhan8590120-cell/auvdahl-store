@@ -8,7 +8,7 @@ interface Addr extends AddressInput { id: string }
 const blank: AddressInput = { fullName: '', mobile: '', email: '', region: '', city: '', district: '', street: '', building: '', unit: '', postalCode: '', additionalNumber: '', notes: '' }
 const input = 'mt-1 w-full border border-gold/30 bg-luxe px-3 py-2'
 export default function Account() {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading, signOut, isAdmin } = useAuth()
   const [name, setName] = useState(''); const [phone, setPhone] = useState(''); const [note, setNote] = useState('')
   const [addrs, setAddrs] = useState<Addr[]>([]); const [form, setForm] = useState(blank); const [errs, setErrs] = useState<Record<string, string>>({})
   const load = useCallback(async () => {
@@ -47,6 +47,7 @@ export default function Account() {
       {note && <p role="status" className="mt-4 text-sm text-champagne">{note}</p>}
       <h2 className="mt-14 text-2xl text-champagne">My orders</h2>
       <Link to="/orders" className="btn-line mt-3">VIEW MY ORDERS</Link>
+      {isAdmin && <><h2 className="mt-14 text-2xl text-champagne">Administration</h2><Link to="/admin" className="btn-gold mt-3">OPEN ADMIN DASHBOARD</Link></>}
     </section>
   )
 }
