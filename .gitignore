@@ -1,0 +1,26 @@
+
+# AUVDAHL - GitHub Security
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Production build
+dist/
+
+# Netlify local data and cache
+.netlify/
+
+# Logs
+*.log
+npm-debug.log*
+
+# System files
+.DS_Store
+Thumbs.db
+
+.netlify/
