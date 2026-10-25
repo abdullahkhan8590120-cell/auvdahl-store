@@ -1,3 +1,11 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /account
+Disallow: /orders
+Disallow: /order/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /login
+Disallow: /register
+Sitemap: https://auvdahl-store.netlify.app/sitemap.xml

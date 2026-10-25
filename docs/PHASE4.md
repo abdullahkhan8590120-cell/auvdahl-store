@@ -2,7 +2,7 @@
 ## 1. Install
 Install Node.js LTS. In PowerShell inside the project folder: `rmdir /s /q node_modules` (if present), `del package-lock.json`, `npm install`, `npm run build`, `npm test`. Then `npm audit` and send me the full output.
 ## 2. Supabase (existing project, no data is dropped)
-SQL Editor, run in order: 001, seed, 002, 003 (all in `supabase/`). Send any error text. Set stock: `update public.inventory set quantity_on_hand = 10 where product_id in (select id from public.products);`
+SQL Editor, run in order: 001, seed, 002, 003, 004 (all in `supabase/`; 004 is new, see docs/MIGRATIONS.md). Send any error text. Set stock: `update public.inventory set quantity_on_hand = 10 where product_id in (select id from public.products);`
 Make yourself admin: `update public.profiles set role='admin' where id=(select id from auth.users where email='YOUR_EMAIL');`
 ## 3. Environment
 Copy `.env.example` to `.env.local` (browser values) and add the SERVER values in Netlify → Environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_ENVIRONMENT=sandbox, PAYPAL_WEBHOOK_ID, PAYPAL_CURRENCY, PAYPAL_SAR_PER_UNIT. Run locally with `npx netlify dev` (port 8888), which also needs those variables in a local `.env`.

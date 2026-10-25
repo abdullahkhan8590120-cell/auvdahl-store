@@ -9,7 +9,7 @@ export default function Orders() {
   const { user, loading } = useAuth(); const [rows, setRows] = useState<Row[] | null>(null)
   useEffect(() => { if (supabase && user) void supabase.from('orders').select('id,order_number,status,payment_status,total_sar,created_at').order('created_at', { ascending: false }).then(r => setRows((r.data ?? []) as Row[])) }, [user])
   if (loading) return <p className="py-40 text-center">Loading…</p>
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace state={{ from: window.location.pathname }} />
   return (
     <section className="mx-auto max-w-4xl px-5 py-16"><PageTitle text="My orders — AUVDAHL" />
       <h1 className="text-4xl gold-text">My orders</h1>

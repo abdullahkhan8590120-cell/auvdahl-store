@@ -1,16 +1,18 @@
 import PageTitle from '../components/PageTitle'
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { isEmail } from '../lib/validation'
 type Mode = 'login' | 'register' | 'forgot' | 'reset'
 const titles: Record<Mode, string> = { login: 'Sign in', register: 'Create account', forgot: 'Reset password', reset: 'Choose a new password' }
 export default function Auth({ mode }: { mode: Mode }) {
-  const { user } = useAuth(); const nav = useNavigate()
+  const { user } = useAuth(); const nav = useNavigate(); const loc = useLocation()
+  const from = (loc.state as { from?: string } | null)?.from
+  const dest = from && from.startsWith('/') && !from.startsWith('//') ? from : '/account'   // only same-site paths
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [name, setName] = useState('')
   const [msg, setMsg] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
-  if (user && mode !== 'reset') return <Navigate to="/account" replace />
+  if (user && mode !== 'reset') return <Navigate to={dest} replace />
   if (!supabaseConfigured || !supabase) return <section className="py-40 text-center px-6"><h1 className="text-3xl gold-text">Accounts are not connected yet</h1><p className="mt-3 text-ivory/60">Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (see docs/SETUP_SUPABASE.md).</p></section>
   const sb = supabase
   const submit = async (e: React.FormEvent) => {
@@ -21,16 +23,16 @@ export default function Auth({ mode }: { mode: Mode }) {
     setBusy(true)
     const origin = window.location.origin
     const r = mode === 'login' ? await sb.auth.signInWithPassword({ email, password })
-      : mode === 'register' ? await sb.auth.signUp({ email, password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${origin}/account` } })
+      : mode === 'register' ? await sb.auth.signUp({ email, password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${origin}${dest}` } })
       : mode === 'forgot' ? await sb.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/reset-password` })
       : await sb.auth.updateUser({ password })
     setBusy(false)
     if (r.error) return setError(r.error.message)
     if (mode === 'register') setMsg('Check your email to confirm your account.')
     else if (mode === 'forgot') setMsg('If that email has an account, a reset link is on its way.')
-    else if (mode === 'reset') { setMsg('Password updated.'); setTimeout(() => nav('/account'), 800) }
+    else if (mode === 'reset') { setMsg('Password updated.'); setTimeout(() => nav(dest), 800) }
   }
-  const google = () => sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/account` } })
+  const google = () => sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}${dest}` } })
   const input = 'mt-1 w-full border border-gold/30 bg-luxe px-3 py-2.5'
   return (
     <section className="mx-auto max-w-md px-5 py-20">
@@ -46,8 +48,8 @@ export default function Auth({ mode }: { mode: Mode }) {
       </form>
       {(mode === 'login' || mode === 'register') && <button onClick={google} className="btn-line mt-4 w-full">CONTINUE WITH GOOGLE</button>}
       <p className="mt-6 text-center text-sm text-ivory/60 space-x-4">
-        {mode !== 'login' && <Link to="/login" className="underline">Sign in</Link>}
-        {mode !== 'register' && <Link to="/register" className="underline">Create account</Link>}
+        {mode !== 'login' && <Link to="/login" state={loc.state} className="underline">Sign in</Link>}
+        {mode !== 'register' && <Link to="/register" state={loc.state} className="underline">Create account</Link>}
         {mode === 'login' && <Link to="/forgot-password" className="underline">Forgot password?</Link>}
       </p>
     </section>

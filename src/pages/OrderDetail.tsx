@@ -23,7 +23,7 @@ export default function OrderDetail() {
     if (!r.data) return setMissing(true)
     setO(r.data as Order)
     setEv(((await supabase.from('order_events').select('id,note,created_at').eq('order_id', id).order('created_at')).data ?? []) as Ev[])
-    if (r.data.payment_method === 'stc_transfer') setBank((await supabase.from('store_settings').select('value').eq('key', 'stc_bank_details').maybeSingle()).data?.value as Bank ?? null)
+    if (r.data.payment_method === 'stc_transfer') { const b = await callApi<{ details: Bank | null }>('bank-details', { orderId: id }); setBank(b.ok ? b.data.details : null) }
   }, [id])
   useEffect(() => { if (user) void load() }, [user, load])
   const [pp, setPp] = useState<{ enabled: boolean; currency: string; rate: number; sandbox: boolean } | null>(null); const ppDone = useRef(false)
@@ -40,7 +40,7 @@ export default function OrderDetail() {
     }
   }, [user, id, load])
   if (loading) return <p className="py-40 text-center">Loading…</p>
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace state={{ from: window.location.pathname }} />
   if (missing) return <section className="py-40 text-center"><h1 className="text-3xl gold-text">Order not found</h1><Link to="/orders" className="btn-line mt-8">MY ORDERS</Link></section>
   if (!o) return <p className="py-40 text-center">Loading…</p>
   const copy = (t: string) => navigator.clipboard?.writeText(t).then(() => setMsg('Copied.'))
@@ -65,19 +65,21 @@ export default function OrderDetail() {
       <p className="mt-2 text-sm text-ivory/60">{new Date(o.created_at).toLocaleString('en-GB')} · {statusLabel[o.status]} · {payLabel[o.payment_status]}</p>
       <ul className="mt-8 divide-y divide-gold/20 border-y border-gold/20">{o.order_items.map(i => <li key={i.id} className="flex justify-between py-3 text-sm"><span>{i.product_name} × {i.quantity}</span><span>SAR {i.line_total_sar}</span></li>)}</ul>
       <dl className="mt-4 space-y-1 text-sm text-right">
-        <div>Subtotal SAR {o.subtotal_sar}</div><div>Shipping SAR {o.shipping_sar}</div>{o.payment_fee_sar > 0 && <div>Cash on Delivery fee SAR {o.payment_fee_sar}</div>}
+        <div>Subtotal SAR {o.subtotal_sar}</div><div>Shipping {o.shipping_sar > 0 ? `SAR ${o.shipping_sar}` : 'to be confirmed by AUVDAHL'}</div>{o.payment_fee_sar > 0 && <div>Cash on Delivery fee SAR {o.payment_fee_sar}</div>}
         <div className="text-lg text-gold">Total SAR {o.total_sar}</div></dl>
       <h2 className="mt-10 text-2xl text-champagne">Delivery address</h2>
       <p className="mt-2 text-sm text-ivory/80">{a.fullName}, {a.building} {a.street}, {a.district}, {a.city}, {a.region}, Saudi Arabia · {a.mobile}</p>
       <p className="mt-1 text-sm text-ivory/60">Delivery estimate available after confirmation.</p>
       {o.payment_method === 'cod' && <p className="mt-6 text-sm text-ivory/80">Pay SAR {o.total_sar} in cash on delivery. COD stays unpaid until our team confirms collection.</p>}
-      {o.payment_method === 'stc_transfer' && bank && (
+      {o.payment_method === 'stc_transfer' && (
         <div className="mt-8 border border-gold/30 bg-luxe p-5 text-sm">
           <h2 className="text-2xl text-champagne">Bank transfer</h2>
+          {bank?.iban ? <>
           <p className="mt-2">Transfer exactly <b className="text-gold">SAR {o.total_sar}</b> and use <b>{o.order_number}</b> as the reference.</p>
           <p className="mt-3">{bank.bank_name} · {bank.account_holder}</p>
-          <p className="mt-1">IBAN {bank.iban} <button className="underline ml-2" onClick={() => copy(bank.iban)}>Copy</button></p>
-          <p className="mt-1">Account {bank.account_number} <button className="underline ml-2" onClick={() => copy(bank.account_number)}>Copy</button></p>
+          <p className="mt-1">IBAN {bank.iban} <button className="ml-2 min-h-[44px] underline" onClick={() => copy(bank.iban)}>Copy</button></p>
+          {bank.account_number && <p className="mt-1">Account {bank.account_number} <button className="ml-2 min-h-[44px] underline" onClick={() => copy(bank.account_number)}>Copy</button></p>}</>
+          : <p className="mt-2">Our bank details are not available online right now. Message us on WhatsApp with your order number and we will send them.</p>}
           {['pending', 'awaiting_verification'].includes(o.payment_status) && o.status !== 'cancelled' && <div className="mt-5">
             <label className="block">Upload your receipt (JPG, PNG or PDF, up to 5 MB)<input type="file" accept="image/jpeg,image/png,application/pdf" onChange={e => setFile(e.target.files?.[0] ?? null)} className="mt-2 block" /></label>
             <button className="btn-gold mt-3" disabled={!file || busy} onClick={upload}>{busy ? 'UPLOADING' : 'SUBMIT RECEIPT'}</button></div>}
