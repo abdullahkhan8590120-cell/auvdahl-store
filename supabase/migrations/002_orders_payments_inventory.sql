@@ -57,9 +57,10 @@ create policy rcpt_read on public.payment_receipts for select to authenticated u
 drop policy if exists ev_read on public.order_events;
 create policy ev_read on public.order_events for select to authenticated using (exists (select 1 from public.orders o where o.id = order_events.order_id));
 
+-- Bank details are NOT stored in source control. Leave blank here and enter them in Admin > Settings (migration 004 / admin dashboard).
 insert into public.store_settings (key, value, is_public) values
  ('cod_fee_sar','20',true), ('shipping_fee_sar','0',true),
- ('stc_bank_details','{"bank_name":"STC Bank / STC Pay","account_holder":"SYEDA ZAIDI","iban":"SA687800000003129608456","account_number":"1329608456","currency":"SAR"}',true)
+ ('stc_bank_details','{"bank_name":"","account_holder":"","iban":"","account_number":"","currency":"SAR"}',false)
 on conflict (key) do nothing;
 
 create or replace function public.create_order(p_user uuid, p_key uuid, p_method text, p_address jsonb, p_items jsonb)

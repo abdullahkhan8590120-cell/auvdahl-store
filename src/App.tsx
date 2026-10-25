@@ -11,6 +11,9 @@ import Account from './pages/Account'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import ComingSoon from './pages/ComingSoon'
+import About from './pages/About'
+import Contact from './pages/Contact'
+import { Shipping, Returns, Privacy, Terms } from './pages/Policies'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminRoute from './admin/AdminRoute'
 
@@ -29,9 +32,14 @@ export default function App() {
         <Route path="reset-password" element={<Auth mode="reset" />} />
         <Route path="account" element={<Account />} />
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="about" element={<About />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="shipping" element={<Shipping />} />
+        <Route path="returns" element={<Returns />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
         <Route path="orders" element={<Orders />} />
         <Route path="order/:id" element={<OrderDetail />} />
-        {/* Phase 5+: real Shop, Product, Cart, Checkout pages replace this */}
         <Route path="*" element={<ComingSoon />} />
       </Route>
     </Routes>

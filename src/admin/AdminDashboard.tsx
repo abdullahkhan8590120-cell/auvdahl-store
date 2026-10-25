@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { callApi } from '../lib/api'
 import PageTitle from '../components/PageTitle'
+import { validateBank, type BankDetails } from '../lib/validation'
 
 // Column names below come from supabase/migrations 001-003.
 type Order = {
@@ -19,7 +20,7 @@ const label = (s: string) => s.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperC
 const field = 'border border-gold/30 bg-luxe px-2 py-1 text-sm'
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState<'orders' | 'inventory'>('orders')
+  const [tab, setTab] = useState<'orders' | 'inventory' | 'settings'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [payments, setPayments] = useState<Record<string, Payment>>({})
   const [receipts, setReceipts] = useState<Record<string, Receipt[]>>({})
@@ -32,6 +33,8 @@ export default function AdminDashboard() {
   const [busy, setBusy] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  const [bank, setBank] = useState<BankDetails>({ bank_name: '', account_holder: '', iban: '', account_number: '', currency: 'SAR' })
+  const [bankLoaded, setBankLoaded] = useState<boolean | null>(null)
   const [receiptLink, setReceiptLink] = useState<{ url: string; order: string } | null>(null)
 
   const load = useCallback(async () => {
@@ -45,18 +48,21 @@ export default function AdminDashboard() {
     const list = (o.data ?? []) as Order[]
     setOrders(list)
     const ids = list.map(x => x.id)
-    const [p, r, i, s, pr] = await Promise.all([
+    const [p, r, i, s, pr, bk] = await Promise.all([
       ids.length ? supabase.from('payments').select('order_id,method,status,amount_sar,provider_ref,verified_at').in('order_id', ids) : Promise.resolve({ data: [], error: null }),
       ids.length ? supabase.from('payment_receipts').select('order_id,storage_path,created_at').in('order_id', ids).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
       ids.length ? supabase.from('order_items').select('order_id,product_name,quantity').in('order_id', ids) : Promise.resolve({ data: [], error: null }),
       supabase.from('inventory').select('product_id,quantity_on_hand,reserved,low_stock_threshold'),
-      supabase.from('products').select('id,name,price_sar,is_active').order('sort_order')
+      supabase.from('products').select('id,name,price_sar,is_active').order('sort_order'),
+      supabase.from('store_settings').select('value').eq('key', 'stc_bank_details').maybeSingle()
     ])
     if (p.error) errs.push(`Payments: ${p.error.message}`)
     if (r.error) errs.push(`Receipts: ${r.error.message}`)
     if (i.error) errs.push(`Order items: ${i.error.message}`)
     if (s.error) errs.push(`Inventory: ${s.error.message}`)
     if (pr.error) errs.push(`Products: ${pr.error.message}`)
+    if (bk.error) errs.push(`Settings: ${bk.error.message}`)
+    else { const v = bk.data?.value as BankDetails | undefined; setBankLoaded(Boolean(v?.iban)); if (v) setBank({ bank_name: v.bank_name ?? '', account_holder: v.account_holder ?? '', iban: v.iban ?? '', account_number: v.account_number ?? '', currency: 'SAR' }) }
     const group = <T extends { order_id: string }>(rows: T[] | null) => (rows ?? []).reduce<Record<string, T[]>>((m, x) => { (m[x.order_id] ??= []).push(x); return m }, {})
     setPayments(Object.fromEntries(((p.data ?? []) as Payment[]).map(x => [x.order_id, x])))
     setReceipts(group((r.data ?? []) as Receipt[]))
@@ -109,7 +115,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-12 flex gap-3" role="tablist">
-        {(['orders', 'inventory'] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={tab === t ? 'btn-gold !py-2' : 'btn-line !py-2'}>{t.toUpperCase()}</button>)}
+        {(['orders', 'inventory', 'settings'] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={tab === t ? 'btn-gold !py-2' : 'btn-line !py-2'}>{t.toUpperCase()}</button>)}
         <button onClick={() => void load()} disabled={loading} className="btn-line !py-2 ml-auto">{loading ? 'LOADING…' : 'REFRESH'}</button>
       </div>
 
@@ -146,7 +152,9 @@ export default function AdminDashboard() {
                   {open === o.id && <tr className="border-t border-gold/10 bg-luxe/60"><td colSpan={6} className="p-4 text-xs text-ivory/70">
                     <p><span className="text-gold">Items:</span> {(items[o.id] ?? []).map(i => `${i.product_name} × ${i.quantity}`).join(', ') || '—'}</p>
                     <p className="mt-1"><span className="text-gold">Payment record:</span> {pay ? `${label(pay.status)} · SAR ${Number(pay.amount_sar).toFixed(2)}${pay.provider_ref ? ` · ref ${pay.provider_ref}` : ''}${pay.verified_at ? ` · verified ${new Date(pay.verified_at).toLocaleString('en-GB')}` : ''}` : '—'}</p>
-                    <p className="mt-1"><span className="text-gold">Contact:</span> {o.address?.mobile ?? '—'} · {[o.address?.street, o.address?.district, o.address?.city].filter(Boolean).join(', ') || '—'}</p>
+                    <p className="mt-1"><span className="text-gold">Deliver to:</span> {o.address?.fullName ?? '—'} · {o.address?.mobile ?? '—'}{o.address?.email ? ` · ${o.address.email}` : ''}</p>
+                    <p className="mt-1"><span className="text-gold">Address:</span> {[o.address?.unit && `Unit ${o.address.unit}`, o.address?.building && `Building ${o.address.building}`, o.address?.street, o.address?.district, o.address?.city, o.address?.region, o.address?.postalCode, o.address?.additionalNumber && `Additional no. ${o.address.additionalNumber}`, 'Saudi Arabia'].filter(Boolean).join(', ')}</p>
+                    {o.address?.notes && <p className="mt-1"><span className="text-gold">Delivery notes:</span> {o.address.notes}</p>}
                     <p className="mt-1"><span className="text-gold">Receipts uploaded:</span> {rc.length}</p>
                   </td></tr>}
                 </Fragment>
@@ -159,7 +167,7 @@ export default function AdminDashboard() {
 
       {tab === 'inventory' && <div className="mt-6 overflow-x-auto border border-gold/20">
         <table className="w-full text-left text-sm">
-          <thead className="bg-luxe text-gold"><tr>{['Product', 'On hand', 'Reserved', 'Available', 'Set on hand'].map(h => <th key={h} className="p-4">{h}</th>)}</tr></thead>
+          <thead className="bg-luxe text-gold"><tr>{['Product', 'On hand', 'Reserved', 'Available', 'Set on hand', 'On sale'].map(h => <th key={h} className="p-4">{h}</th>)}</tr></thead>
           <tbody>{stock.map(s => {
             const p = products[s.product_id]; const avail = s.quantity_on_hand - s.reserved; const low = avail <= s.low_stock_threshold
             return (
@@ -170,11 +178,24 @@ export default function AdminDashboard() {
                 <td className="p-4"><input type="number" min={s.reserved} step={1} inputMode="numeric" aria-label={`New stock for ${p?.name ?? 'product'}`} className={`${field} w-24`} value={edits[s.product_id] ?? ''} placeholder={String(s.quantity_on_hand)} onChange={e => setEdits({ ...edits, [s.product_id]: e.target.value })} />
                   <button disabled={Boolean(busy) || edits[s.product_id] === undefined || edits[s.product_id] === ''} className="btn-line !px-3 !py-1.5 !text-xs ml-2"
                     onClick={() => { const n = Number(edits[s.product_id]); void run('s' + s.product_id, { action: 'adjust_stock', productId: s.product_id, onHand: n }, `${p?.name ?? 'Stock'} updated to ${n}.`).then(done => { if (done) setEdits(e => { const c = { ...e }; delete c[s.product_id]; return c }) }) }}>SAVE</button></td>
+                <td className="p-4"><button disabled={Boolean(busy) || !p} className="btn-line !px-3 !py-1.5 !text-xs" aria-pressed={p?.is_active}
+                  onClick={() => p && window.confirm(p.is_active ? `Take ${p.name} off sale? Customers will not be able to order it.` : `Put ${p.name} back on sale?`) && void run('a' + s.product_id, { action: 'set_product_active', productId: s.product_id, active: !p.is_active }, `${p.name} is now ${p.is_active ? 'off sale' : 'on sale'}.`)}>{p?.is_active ? 'ON SALE' : 'OFF SALE'}</button></td>
               </tr>
             )
           })}</tbody>
         </table>
         {!loading && stock.length === 0 && errors.length === 0 && <p className="p-6 text-center text-ivory/60">No inventory records found.</p>}
+      </div>}
+
+      {tab === 'settings' && <div className="mt-6 max-w-xl border border-gold/20 bg-luxe p-6">
+        <h2 className="text-2xl text-champagne">Bank transfer details</h2>
+        <p className="mt-2 text-sm text-ivory/70">Shown only to a signed-in customer who has placed a bank-transfer order. They are never in the source code or visible to the public.</p>
+        {bankLoaded === false && <p role="note" className="mt-3 text-sm text-champagne">Not configured yet. Customers choosing bank transfer will be told to contact you.</p>}
+        <form className="mt-5 space-y-4" noValidate onSubmit={e => { e.preventDefault(); const v = validateBank(bank); if (Object.keys(v).length) { setErrors(Object.values(v)); return } if (window.confirm('Save these bank details? Customers will see them on new and open bank-transfer orders.')) void run('bank', { action: 'set_bank_details', bank }, 'Bank details saved.') }}>
+          {([['bank_name', 'Bank name'], ['account_holder', 'Account holder name'], ['iban', 'IBAN (SA + 22 characters)'], ['account_number', 'Account number (optional)']] as const).map(([k, l]) =>
+            <label key={k} className="block text-sm">{l}<input value={bank[k]} onChange={e => setBank({ ...bank, [k]: e.target.value })} autoComplete="off" className={`${field} mt-1 w-full`} /></label>)}
+          <button className="btn-gold" disabled={Boolean(busy)}>{busy === 'bank' ? 'SAVING…' : 'SAVE BANK DETAILS'}</button>
+        </form>
       </div>}
     </section>
   )
